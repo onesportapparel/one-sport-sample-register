@@ -7,6 +7,18 @@ import { BookingList } from './components/BookingList';
 import { InventoryManager } from './components/InventoryManager';
 import { initEmailService, sendEmailNotification } from './services/email';
 import { printBooking } from './services/print';
+import { 
+  LayoutDashboard, 
+  Plus, 
+  History, 
+  Package, 
+  RefreshCw, 
+  ShieldCheck, 
+  Clock,
+  Archive,
+  Layers,
+  Activity
+} from 'lucide-react';
 
 type View = 'DASHBOARD' | 'NEW_BOOKING';
 type Tab = 'SAMPLES_OUT' | 'BOOKINGS' | 'HISTORY' | 'INVENTORY';
@@ -41,7 +53,7 @@ const App: React.FC = () => {
   };
 
   const handleReturn = async (id: string) => {
-    if (window.confirm('Are you sure you want to mark these samples as returned?')) {
+    if (window.confirm('Mark these samples as returned to inventory?')) {
       await updateBookingStatus(id, 'RETURNED');
       setLastUpdated(Date.now());
       setActiveTab('HISTORY');
@@ -54,7 +66,7 @@ const App: React.FC = () => {
   };
 
   const handleActivate = async (id: string) => {
-    if (window.confirm('Are you sure you want to move this booking to "Samples Out"?')) {
+    if (window.confirm('Move this booking to active "Samples Out"?')) {
       await updateBookingStatus(id, 'ACTIVE');
       setLastUpdated(Date.now());
       setActiveTab('SAMPLES_OUT');
@@ -75,108 +87,127 @@ const App: React.FC = () => {
   const history = bookings.filter(b => b.status === 'RETURNED').sort((a,b) => new Date(b.dateReturn).getTime() - new Date(a.dateReturn).getTime());
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900">
-      <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('DASHBOARD')}>
-            <div className="bg-white text-slate-900 font-bold p-1 rounded text-xs">ONE</div>
-            <h1 className="text-xl font-bold tracking-tight">SPORT SAMPLE REGISTER</h1>
+    <div className="min-h-screen bg-[#f8fafc] font-sans text-slate-900 selection:bg-indigo-100">
+      {/* Dynamic Header */}
+      <header className="bg-slate-900 text-white sticky top-0 z-50 px-6 h-20 flex items-center justify-between border-b border-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('DASHBOARD')}>
+            <div className="bg-indigo-600 text-white font-black p-2 rounded-lg text-xs transform group-hover:rotate-6 transition-transform shadow-lg shadow-indigo-500/20">ONE</div>
+            <h1 className="text-xl font-black tracking-tighter uppercase italic">Sport Register</h1>
           </div>
-          {view === 'DASHBOARD' && activeTab !== 'INVENTORY' && (
+          
+          <nav className="hidden lg:flex items-center gap-1 bg-white/5 p-1 rounded-xl">
+             <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-r border-white/10">
+                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                Cloud Synced
+             </div>
+             <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <Activity className="w-3 h-3 text-indigo-400" />
+                Ops v2.4
+             </div>
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setLastUpdated(Date.now())}
+            className="p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+            title="Refresh Registry"
+          >
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+          
+          {view === 'DASHBOARD' && (
             <button 
               onClick={() => setView('NEW_BOOKING')}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
+              className="bg-white text-slate-900 px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-xl flex items-center gap-2 active:scale-95"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <Plus className="w-4 h-4" />
               New Booking
             </button>
           )}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-10">
         {view === 'NEW_BOOKING' ? (
-          <NewBookingForm 
-            onComplete={handleCreateBooking} 
-            onCancel={() => setView('DASHBOARD')} 
-          />
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <NewBookingForm 
+              onComplete={handleCreateBooking} 
+              onCancel={() => setView('DASHBOARD')} 
+            />
+          </div>
         ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div 
-                onClick={() => setActiveTab('SAMPLES_OUT')}
-                className={`p-6 rounded-lg shadow-sm border cursor-pointer transition-all ${activeTab === 'SAMPLES_OUT' ? 'bg-white border-blue-500 ring-2 ring-blue-500' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-              >
-                <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Samples Out</div>
-                <div className="mt-2 text-3xl font-bold text-slate-900">{isLoading ? '...' : samplesOut.length}</div>
-                <div className="text-xs text-gray-400 mt-1">Currently with clients</div>
-              </div>
-              <div 
-                onClick={() => setActiveTab('BOOKINGS')}
-                className={`p-6 rounded-lg shadow-sm border cursor-pointer transition-all ${activeTab === 'BOOKINGS' ? 'bg-white border-blue-500 ring-2 ring-blue-500' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-              >
-                <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Upcoming Bookings</div>
-                <div className="mt-2 text-3xl font-bold text-slate-900">{isLoading ? '...' : pendingBookings.length}</div>
-                <div className="text-xs text-gray-400 mt-1">Reserved for future dates</div>
-              </div>
-              <div 
-                onClick={() => setActiveTab('HISTORY')}
-                className={`p-6 rounded-lg shadow-sm border cursor-pointer transition-all ${activeTab === 'HISTORY' ? 'bg-white border-blue-500 ring-2 ring-blue-500' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-              >
-                <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Return History</div>
-                <div className="mt-2 text-3xl font-bold text-slate-900">{isLoading ? '...' : history.length}</div>
-                <div className="text-xs text-gray-400 mt-1">Completed jobs</div>
-              </div>
-              <div 
-                onClick={() => setActiveTab('INVENTORY')}
-                className={`p-6 rounded-lg shadow-sm border cursor-pointer transition-all ${activeTab === 'INVENTORY' ? 'bg-white border-blue-500 ring-2 ring-blue-500' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-              >
-                <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">Inventory</div>
-                <div className="mt-2 text-xl font-bold text-slate-900 flex items-center gap-2">Manage Kits</div>
-                <div className="text-xs text-gray-400 mt-1">Edit / Add / Remove</div>
-              </div>
+          <div className="space-y-10 animate-in fade-in duration-700">
+            {/* Metric Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { id: 'SAMPLES_OUT', label: 'Samples Out', count: samplesOut.length, icon: Package, color: 'indigo', desc: 'Active in Field' },
+                { id: 'BOOKINGS', label: 'Reservations', count: pendingBookings.length, icon: Clock, color: 'amber', desc: 'Upcoming Queue' },
+                { id: 'HISTORY', label: 'Registry', count: history.length, icon: Archive, color: 'emerald', desc: 'Past Returns' },
+                { id: 'INVENTORY', label: 'Catalog', count: 'v1.0', icon: Layers, color: 'slate', desc: 'Sizing Kits' }
+              ].map((card) => (
+                <div 
+                  key={card.id}
+                  onClick={() => setActiveTab(card.id as Tab)}
+                  className={`
+                    p-6 rounded-3xl border-2 cursor-pointer transition-all relative overflow-hidden group
+                    ${activeTab === card.id 
+                      ? 'bg-white border-indigo-600 shadow-2xl -translate-y-1' 
+                      : 'bg-white border-transparent hover:border-slate-200 shadow-sm hover:shadow-md'}
+                  `}
+                >
+                  <div className={`mb-4 w-12 h-12 rounded-2xl flex items-center justify-center bg-${card.color}-50 text-${card.color}-600 group-hover:scale-110 transition-transform`}>
+                    <card.icon className="w-6 h-6" />
+                  </div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{card.label}</div>
+                  <div className="mt-1 text-3xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : card.count}</div>
+                  <div className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-tight">{card.desc}</div>
+                  
+                  {activeTab === card.id && (
+                    <div className="absolute top-0 right-0 w-16 h-16 -mr-8 -mt-8 bg-indigo-50 rounded-full opacity-50 blur-xl"></div>
+                  )}
+                </div>
+              ))}
             </div>
 
-            <div className="bg-white rounded-lg shadow min-h-[500px] p-6 border border-gray-200 relative">
+            {/* Content Area */}
+            <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 min-h-[600px] p-10 relative overflow-hidden">
               {isLoading && (
-                <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center backdrop-blur-[1px]">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm font-medium text-slate-600">Syncing with Azure...</span>
-                  </div>
+                <div className="absolute inset-0 bg-white/60 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
+                  <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Synchronizing Records</span>
                 </div>
               )}
 
               {activeTab === 'SAMPLES_OUT' && (
                 <BookingList 
-                  title="Samples Out (Active)" 
+                  title="Field Operations" 
                   bookings={samplesOut} 
                   onAction={handleReturn}
                   onPrint={handlePrint}
-                  actionLabel="Mark Returned"
-                  actionColorClass="bg-green-600 hover:bg-green-700 text-white"
-                  emptyMessage="No samples are currently out with clients."
+                  actionLabel="Confirm Return"
+                  actionColorClass="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200"
+                  emptyMessage="No samples currently in field operations."
                 />
               )}
               {activeTab === 'BOOKINGS' && (
                 <BookingList 
-                  title="Forward Bookings" 
+                  title="Forward Queue" 
                   bookings={pendingBookings} 
                   onAction={handleActivate}
                   onPrint={handlePrint}
-                  actionLabel="Move to Samples Out"
-                  actionColorClass="bg-blue-600 hover:bg-blue-700 text-white"
-                  emptyMessage="No upcoming bookings found."
+                  actionLabel="Mark as Out"
+                  actionColorClass="bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200"
+                  emptyMessage="The forward booking queue is empty."
                 />
               )}
               {activeTab === 'HISTORY' && (
                 <BookingList 
-                  title="Return History" 
+                  title="Archives" 
                   bookings={history} 
                   onPrint={handlePrint}
-                  emptyMessage="No history found."
+                  emptyMessage="Historical archive is currently empty."
                 />
               )}
                {activeTab === 'INVENTORY' && (
@@ -186,6 +217,16 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+      
+      <footer className="max-w-7xl mx-auto px-6 pb-12">
+        <div className="border-t border-slate-200 pt-8 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+           <div>&copy; {new Date().getFullYear()} One Sport Internal Operations</div>
+           <div className="flex gap-4">
+              <span className="hover:text-indigo-600 cursor-pointer">Security Policy</span>
+              <span className="hover:text-indigo-600 cursor-pointer">Audit Logs</span>
+           </div>
+        </div>
+      </footer>
     </div>
   );
 };
