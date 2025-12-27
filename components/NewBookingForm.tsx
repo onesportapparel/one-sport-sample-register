@@ -1,8 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
 import { Booking, BookingType } from '../types';
 import { saveBooking, generateId } from '../services/storage';
 import { sendEmailNotification } from '../services/email';
 import { KitSelector } from './KitSelector';
+import { 
+  X, 
+  User, 
+  Building2, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  Clock, // Added missing import
+  FileText, 
+  CheckCircle2, 
+  ArrowRight,
+  Info
+} from 'lucide-react';
 
 interface Props {
   onComplete: () => void;
@@ -28,7 +42,6 @@ export const NewBookingForm: React.FC<Props> = ({ onComplete, onCancel }) => {
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // When type changes to IMMEDIATE, force dateOut to today
   useEffect(() => {
     if (type === 'IMMEDIATE') {
       setDateOut(new Date().toISOString().split('T')[0]);
@@ -39,18 +52,19 @@ export const NewBookingForm: React.FC<Props> = ({ onComplete, onCancel }) => {
     e.preventDefault();
     const newErrors = [];
 
-    if (!dateOut) newErrors.push("Start date is required");
-    if (!dateReturn) newErrors.push("Return date is required");
-    if (!customer.organization) newErrors.push("Organization is required");
-    if (!customer.name) newErrors.push("Contact name is required");
-    if (selectedKitIds.length === 0 && !extraSamples) newErrors.push("Please select at least one kit or add extra samples");
+    if (!dateOut) newErrors.push("Deployment date is required");
+    if (!dateReturn) newErrors.push("Return expectation is required");
+    if (!customer.organization) newErrors.push("Entity name is required");
+    if (!customer.name) newErrors.push("Primary contact is required");
+    if (selectedKitIds.length === 0 && !extraSamples) newErrors.push("Selection required (Kit or Extras)");
     
     if (new Date(dateReturn) < new Date(dateOut)) {
-        newErrors.push("Return date cannot be before date out");
+        newErrors.push("Return date must succeed deployment date");
     }
 
     if (newErrors.length > 0) {
       setErrors(newErrors);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -71,233 +85,149 @@ export const NewBookingForm: React.FC<Props> = ({ onComplete, onCancel }) => {
     };
 
     saveBooking(newBooking);
-    
-    // Send email notification
     await sendEmailNotification(newBooking, 'CREATED');
 
     setIsSubmitting(false);
     onComplete();
   };
 
-  const inputClass = "w-full border border-gray-300 rounded-md p-2.5 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm placeholder-gray-400";
-  const labelClass = "block text-sm font-semibold text-gray-800 mb-1";
-
-  // Dynamic Label for Date Out
-  const getDateOutLabel = () => {
-    if (type === 'COLLECTION') return 'Date for Collection';
-    if (type === 'DELIVERY') return 'Date for Delivery';
-    return 'Date Out';
-  };
+  const inputClass = "w-full border-2 border-slate-100 rounded-2xl p-3.5 bg-slate-50 text-slate-900 focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 outline-none transition-all placeholder:text-slate-400 text-sm font-medium";
+  const labelClass = "text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2";
 
   return (
-    <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-8 max-w-6xl mx-auto my-6 text-gray-900">
-      <div className="flex justify-between items-center mb-8 border-b pb-4">
-        <div>
-          <h2 className="text-3xl font-extrabold text-slate-800">New Sample Booking</h2>
-          <p className="text-gray-600 mt-1">Fill in the details below to create a new reservation.</p>
+    <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden max-w-6xl mx-auto my-6">
+      <div className="bg-slate-900 p-10 text-white flex justify-between items-center relative overflow-hidden">
+        <div className="relative z-10">
+          <h2 className="text-4xl font-black tracking-tighter italic">Create Booking</h2>
+          <p className="text-slate-400 mt-2 font-medium">Provision sizing kits for field deployment.</p>
         </div>
-        <button onClick={onCancel} className="text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center transition-colors">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        <button onClick={onCancel} className="bg-white/10 hover:bg-white/20 p-3 rounded-full transition-all relative z-10">
+          <X className="w-6 h-6" />
         </button>
+        {/* Abstract background element */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
       </div>
 
-      {errors.length > 0 && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-8 shadow-sm">
-          <p className="font-bold mb-1">Please fix the following errors:</p>
-          <ul className="list-disc pl-5 text-sm space-y-1">
-            {errors.map((err, i) => <li key={i}>{err}</li>)}
-          </ul>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Booking Type */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <label className={`
-            cursor-pointer border-2 rounded-xl p-4 text-center transition-all flex flex-col items-center justify-center gap-2 h-24
-            ${type === 'IMMEDIATE' ? 'bg-blue-50 border-blue-600 text-blue-900 font-bold shadow-md' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'}
-          `}>
-            <input type="radio" name="type" value="IMMEDIATE" checked={type === 'IMMEDIATE'} onChange={() => setType('IMMEDIATE')} className="hidden" />
-            <span className="text-lg">Taken Immediately</span>
-            <span className="text-xs font-normal opacity-75">Client is in showroom</span>
-          </label>
-          <label className={`
-            cursor-pointer border-2 rounded-xl p-4 text-center transition-all flex flex-col items-center justify-center gap-2 h-24
-            ${type === 'COLLECTION' ? 'bg-blue-50 border-blue-600 text-blue-900 font-bold shadow-md' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'}
-          `}>
-            <input type="radio" name="type" value="COLLECTION" checked={type === 'COLLECTION'} onChange={() => setType('COLLECTION')} className="hidden" />
-            <span className="text-lg">Book for Collection</span>
-            <span className="text-xs font-normal opacity-75">Client will pickup later</span>
-          </label>
-          <label className={`
-            cursor-pointer border-2 rounded-xl p-4 text-center transition-all flex flex-col items-center justify-center gap-2 h-24
-            ${type === 'DELIVERY' ? 'bg-blue-50 border-blue-600 text-blue-900 font-bold shadow-md' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'}
-          `}>
-            <input type="radio" name="type" value="DELIVERY" checked={type === 'DELIVERY'} onChange={() => setType('DELIVERY')} className="hidden" />
-            <span className="text-lg">Book for Delivery</span>
-            <span className="text-xs font-normal opacity-75">We need to ship it</span>
-          </label>
-        </div>
-
-        {/* Dates & Sales */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           <div>
-            <label className={labelClass}>{getDateOutLabel()}</label>
-            <input 
-              type="date" 
-              required
-              readOnly={type === 'IMMEDIATE'}
-              value={dateOut}
-              onChange={(e) => setDateOut(e.target.value)}
-              onClick={(e) => !e.currentTarget.readOnly && e.currentTarget.showPicker()}
-              style={{ colorScheme: 'light' }}
-              className={`${inputClass} ${type === 'IMMEDIATE' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Date to Return</label>
-            <input 
-              type="date" 
-              required
-              value={dateReturn}
-              onChange={(e) => setDateReturn(e.target.value)}
-              onClick={(e) => e.currentTarget.showPicker()}
-              style={{ colorScheme: 'light' }}
-              className={`${inputClass} cursor-pointer hover:bg-gray-50`}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Sales Person</label>
-            <div className="relative">
-              <select 
-                value={salesPerson} 
-                onChange={(e) => setSalesPerson(e.target.value as any)}
-                className={inputClass}
-              >
-                <option value="Darryn Shannon">Darryn Shannon</option>
-                <option value="Toby Keen">Toby Keen</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Customer Details */}
-        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-            Client Information
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className={labelClass}>Organization Name</label>
-              <input 
-                type="text" 
-                required
-                value={customer.organization}
-                onChange={(e) => setCustomer({...customer, organization: e.target.value})}
-                className={inputClass}
-                placeholder="e.g. Western Bulldogs"
-              />
+      <div className="p-10">
+        {errors.length > 0 && (
+          <div className="bg-rose-50 border-2 border-rose-100 text-rose-700 p-6 rounded-3xl mb-10 flex gap-4 animate-in fade-in slide-in-from-top-4">
+            <div className="bg-rose-600 text-white p-2 rounded-xl h-fit shadow-lg shadow-rose-200">
+              <Info className="w-5 h-5" />
             </div>
             <div>
-              <label className={labelClass}>Contact Name</label>
-              <input 
-                type="text" 
-                required
-                value={customer.name}
-                onChange={(e) => setCustomer({...customer, name: e.target.value})}
-                className={inputClass}
-                placeholder="Jane Doe"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Email</label>
-              <input 
-                type="email" 
-                required
-                value={customer.email}
-                onChange={(e) => setCustomer({...customer, email: e.target.value})}
-                className={inputClass}
-                placeholder="jane@example.com"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Phone</label>
-              <input 
-                type="tel" 
-                required
-                value={customer.phone}
-                onChange={(e) => setCustomer({...customer, phone: e.target.value})}
-                className={inputClass}
-                placeholder="04..."
-              />
+              <p className="font-black uppercase text-xs tracking-widest mb-2">Review Required</p>
+              <ul className="list-disc pl-5 text-sm space-y-1 font-medium">
+                {errors.map((err, i) => <li key={i}>{err}</li>)}
+              </ul>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Kit Selection */}
-        <div className="bg-white">
-          <KitSelector 
-            selectedKitIds={selectedKitIds}
-            onChange={setSelectedKitIds}
-            dateOut={dateOut}
-            dateReturn={dateReturn}
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-14">
+          {/* Section 1: Logistics Mode */}
+          <div className="space-y-6">
+            <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">01. Logistics Mode</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { id: 'IMMEDIATE', title: 'On-Site', desc: 'Direct showroom handover' },
+                { id: 'COLLECTION', title: 'Pickup', desc: 'Client collect scheduled' },
+                { id: 'DELIVERY', title: 'Courier', desc: 'External freight required' }
+              ].map((m) => (
+                <label key={m.id} className={`
+                  cursor-pointer border-2 rounded-3xl p-6 transition-all relative flex flex-col gap-1
+                  ${type === m.id ? 'border-indigo-600 bg-indigo-50 shadow-xl shadow-indigo-100 translate-y-[-4px]' : 'border-slate-100 hover:border-slate-200'}
+                `}>
+                  <input type="radio" name="type" value={m.id} checked={type === m.id} onChange={() => setType(m.id as BookingType)} className="hidden" />
+                  <span className={`text-sm font-black uppercase tracking-widest ${type === m.id ? 'text-indigo-700' : 'text-slate-400'}`}>{m.title}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">{m.desc}</span>
+                  {type === m.id && <CheckCircle2 className="absolute top-4 right-4 w-5 h-5 text-indigo-600" />}
+                </label>
+              ))}
+            </div>
+          </div>
 
-        {/* Extras & Notes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className={labelClass}>Extra Samples (Non-Register)</label>
-            <textarea 
-              rows={3}
-              value={extraSamples}
-              onChange={(e) => setExtraSamples(e.target.value)}
-              className={inputClass}
-              placeholder="Describe items taken from showroom rack..."
+          {/* Section 2: Scheduling & Responsibility */}
+          <div className="space-y-6">
+             <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">02. Schedule & Staff</h3>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+               <div className="space-y-2">
+                 <label className={labelClass}><Calendar className="w-3 h-3" /> Start Date</label>
+                 <input type="date" readOnly={type === 'IMMEDIATE'} value={dateOut} onChange={(e) => setDateOut(e.target.value)} className={`${inputClass} ${type === 'IMMEDIATE' ? 'opacity-50 grayscale cursor-not-allowed' : ''}`} />
+               </div>
+               <div className="space-y-2">
+                 <label className={labelClass}><Clock className="w-3 h-3" /> Return Expectation</label>
+                 <input type="date" value={dateReturn} onChange={(e) => setDateReturn(e.target.value)} className={inputClass} />
+               </div>
+               <div className="space-y-2">
+                 <label className={labelClass}><User className="w-3 h-3" /> Lead Representative</label>
+                 <select value={salesPerson} onChange={(e) => setSalesPerson(e.target.value as any)} className={inputClass}>
+                   <option value="Darryn Shannon">Darryn Shannon</option>
+                   <option value="Toby Keen">Toby Keen</option>
+                 </select>
+               </div>
+             </div>
+          </div>
+
+          {/* Section 3: Entity Details */}
+          <div className="bg-slate-50 rounded-[2rem] p-10 space-y-8 border border-slate-100">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">03. Entity Profile</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className={labelClass}><Building2 className="w-3 h-3" /> Organization</label>
+                <input type="text" value={customer.organization} onChange={(e) => setCustomer({...customer, organization: e.target.value})} className={inputClass} placeholder="Club, School or Corporate Name" />
+              </div>
+              <div className="space-y-2">
+                <label className={labelClass}><User className="w-3 h-3" /> Contact Name</label>
+                <input type="text" value={customer.name} onChange={(e) => setCustomer({...customer, name: e.target.value})} className={inputClass} placeholder="Primary Stakeholder" />
+              </div>
+              <div className="space-y-2">
+                <label className={labelClass}><Mail className="w-3 h-3" /> Email Address</label>
+                <input type="email" value={customer.email} onChange={(e) => setCustomer({...customer, email: e.target.value})} className={inputClass} placeholder="official@email.com" />
+              </div>
+              <div className="space-y-2">
+                <label className={labelClass}><Phone className="w-3 h-3" /> Secure Phone</label>
+                <input type="tel" value={customer.phone} onChange={(e) => setCustomer({...customer, phone: e.target.value})} className={inputClass} placeholder="0400 000 000" />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Kit Selection */}
+          <div className="space-y-6">
+            <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">04. Kit Configuration</h3>
+            <KitSelector 
+              selectedKitIds={selectedKitIds}
+              onChange={setSelectedKitIds}
+              dateOut={dateOut}
+              dateReturn={dateReturn}
             />
           </div>
-          <div>
-            <label className={labelClass}>Notes / Comments</label>
-            <textarea 
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={inputClass}
-              placeholder="General comments about this booking..."
-            />
-          </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4 pt-8 border-t border-gray-100">
-          <button 
-            type="button" 
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-          >
-            Cancel
-          </button>
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className={`px-8 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 font-bold shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-wait' : ''}`}
-          >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Processing...
-              </>
-            ) : (
-              'Confirm Booking'
-            )}
-          </button>
-        </div>
-      </form>
+          {/* Section 5: Metadata & Overlays */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className={labelClass}><FileText className="w-3 h-3" /> Non-Register Overlays</label>
+              <textarea rows={3} value={extraSamples} onChange={(e) => setExtraSamples(e.target.value)} className={inputClass} placeholder="Describe any loose samples or one-off items..." />
+            </div>
+            <div className="space-y-2">
+              <label className={labelClass}><FileText className="w-3 h-3" /> Internal Operational Notes</label>
+              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="Add any specific instructions for this deployment..." />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-6 pt-10 border-t border-slate-100">
+            <button type="button" onClick={onCancel} className="px-8 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancel</button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="bg-indigo-600 text-white px-12 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-indigo-700 shadow-2xl shadow-indigo-200 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-50"
+            >
+              {isSubmitting ? 'Syncing...' : 'Finalize Booking'}
+              {!isSubmitting && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

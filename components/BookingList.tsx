@@ -1,5 +1,20 @@
+
 import React, { useState } from 'react';
 import { Booking } from '../types';
+import { 
+  Search, 
+  ChevronRight, 
+  Printer, 
+  Calendar, 
+  User, 
+  Mail, 
+  Phone, 
+  Layers,
+  ArrowRightCircle,
+  Clock,
+  ExternalLink,
+  Package // Added missing import
+} from 'lucide-react';
 
 interface Props {
   bookings: Booking[];
@@ -17,7 +32,7 @@ export const BookingList: React.FC<Props> = ({
   onAction, 
   onPrint,
   actionLabel, 
-  actionColorClass = "bg-blue-600 hover:bg-blue-700 text-white",
+  actionColorClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200",
   emptyMessage
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,158 +49,161 @@ export const BookingList: React.FC<Props> = ({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
-        <h2 className="text-xl font-bold text-slate-800">{title} <span className="text-sm font-normal text-gray-500 ml-2">({filtered.length} records)</span></h2>
-        <div className="relative w-full md:w-64">
-           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3 top-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-           </svg>
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-6">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter">{title}</h2>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{filtered.length} Sequential Records</p>
+        </div>
+        <div className="relative w-full md:w-80 group">
+           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
            <input 
             type="text" 
-            placeholder="Search bookings..." 
+            placeholder="Search Records..." 
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium focus:bg-white focus:border-indigo-600 transition-all outline-none"
           />
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="p-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <p className="text-gray-500">{emptyMessage}</p>
+        <div className="py-20 text-center bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
+           <Layers className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+           <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{emptyMessage}</p>
         </div>
       ) : (
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-[2rem] border-2 border-slate-100 shadow-sm">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50">
               <tr>
-                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Organization</th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Contact</th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Dates</th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Kits</th>
-                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                <th scope="col" className="py-4 pl-8 pr-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Entity / Client</th>
+                <th scope="col" className="px-3 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Temporal Status</th>
+                <th scope="col" className="px-3 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Logistics</th>
+                <th scope="col" className="px-3 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Assets</th>
+                <th scope="col" className="relative py-4 pl-3 pr-8">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-slate-50 bg-white">
               {filtered.map((booking) => (
                 <React.Fragment key={booking.id}>
-                  <tr className="hover:bg-gray-50 cursor-pointer relative" onClick={() => setExpandedId(expandedId === booking.id ? null : booking.id)}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                      {booking.customer.organization}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      <div className="font-medium text-gray-900">{booking.customer.name}</div>
-                      <div className="text-xs">{booking.customer.email}</div>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-400">OUT</span>
-                        <span>{booking.dateOut}</span>
-                        <span className="text-xs text-gray-400 mt-1">RET</span>
-                        <span className={new Date(booking.dateReturn) < new Date() && booking.status !== 'RETURNED' ? 'text-red-600 font-bold' : ''}>
-                          {booking.dateReturn}
-                        </span>
+                  <tr className={`hover:bg-slate-50 cursor-pointer transition-colors ${expandedId === booking.id ? 'bg-indigo-50/30' : ''}`} onClick={() => setExpandedId(expandedId === booking.id ? null : booking.id)}>
+                    <td className="whitespace-nowrap py-6 pl-8 pr-3">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs">
+                            {booking.customer.organization.substring(0,2).toUpperCase()}
+                         </div>
+                         <div>
+                            <div className="text-sm font-black text-slate-900 tracking-tight">{booking.customer.organization}</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{booking.customer.name}</div>
+                         </div>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 
-                        ${booking.type === 'IMMEDIATE' ? 'bg-green-100 text-green-800' : 
-                          booking.type === 'DELIVERY' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                    <td className="whitespace-nowrap px-3 py-6">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                           <Clock className="w-3 h-3 text-emerald-500" />
+                           <span className="uppercase tracking-widest">Dep:</span> {booking.dateOut}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                           <ArrowRightCircle className="w-3 h-3 text-rose-500" />
+                           <span className="uppercase tracking-widest">Ret:</span> 
+                           <span className={new Date(booking.dateReturn) < new Date() && booking.status !== 'RETURNED' ? 'text-rose-600 font-black' : ''}>
+                             {booking.dateReturn}
+                           </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-6">
+                      <span className={`inline-flex rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-widest
+                        ${booking.type === 'IMMEDIATE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
+                          booking.type === 'DELIVERY' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'}`}>
                         {booking.type}
                       </span>
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
-                      <div className="max-w-[150px] truncate" title={booking.kitIds.join(', ')}>
-                        {booking.kitIds.length} kits
-                        {booking.extraSamples && <span className="text-blue-600 ml-1 text-xs">(+extras)</span>}
+                    <td className="px-3 py-6">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Package className="w-3 h-3" />
+                        {booking.kitIds.length} Sizing Kits
+                        {booking.extraSamples && <span className="text-indigo-600 bg-indigo-50 px-1.5 rounded-md font-black">+EXT</span>}
                       </div>
                     </td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                       <div className="flex justify-end items-center gap-2 relative z-10">
-                         {/* Print Button */}
+                    <td className="relative whitespace-nowrap py-6 pl-3 pr-8 text-right">
+                       <div className="flex justify-end items-center gap-3">
                          {onPrint && (
                             <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onPrint(booking);
-                              }}
-                              className="text-gray-500 hover:text-gray-700 p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-                              title="Print Booking Sheet"
+                              onClick={(e) => { e.stopPropagation(); onPrint(booking); }}
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm"
+                              title="Print Provisioning Sheet"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                              </svg>
+                              <Printer className="w-5 h-5" />
                             </button>
                          )}
                          
                          {onAction && (
                            <button 
-                             type="button"
-                             onClick={(e) => {
-                               e.preventDefault();
-                               e.stopPropagation();
-                               onAction(booking.id);
-                             }}
-                             className={`rounded px-3 py-1.5 text-xs font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-transform active:scale-95 ${actionColorClass}`}
+                             onClick={(e) => { e.stopPropagation(); onAction(booking.id); }}
+                             className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg transition-all active:scale-95 ${actionColorClass}`}
                            >
                              {actionLabel}
                            </button>
                          )}
-                         <button 
-                          type="button"
-                          className="text-gray-400 p-1 hover:text-gray-600"
-                          onClick={(e) => {
-                             e.preventDefault();
-                             e.stopPropagation();
-                             setExpandedId(expandedId === booking.id ? null : booking.id);
-                          }}
-                         >
-                           {expandedId === booking.id ? '▲' : '▼'}
-                         </button>
+                         <ChevronRight className={`w-5 h-5 text-slate-300 transition-transform ${expandedId === booking.id ? 'rotate-90 text-indigo-400' : ''}`} />
                        </div>
                     </td>
                   </tr>
                   {expandedId === booking.id && (
-                    <tr className="bg-gray-50 cursor-default" onClick={(e) => e.stopPropagation()}>
-                      <td colSpan={6} className="px-4 py-4 sm:px-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                           <div>
-                              <h4 className="font-bold text-gray-900 mb-2">Kits Included:</h4>
+                    <tr className="bg-slate-50/50 cursor-default animate-in fade-in duration-300">
+                      <td colSpan={5} className="px-8 py-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                           <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 pb-2 flex items-center gap-2">
+                                <Package className="w-3 h-3" /> Asset Inventory
+                              </h4>
                               <div className="flex flex-wrap gap-2">
                                 {booking.kitIds.map(id => (
-                                  <span key={id} className="inline-flex items-center rounded-md bg-white border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700">
-                                    {/* Display only kit number for compactness in admin view, detailed in print */}
-                                    {/* We need to parse kit ID to get kit number if possible, or just show ID */}
-                                    {id.split('-')[1] || id} 
+                                  <span key={id} className="bg-white border-2 border-slate-100 px-3 py-1.5 rounded-xl text-[10px] font-black text-slate-700 shadow-sm">
+                                    KIT {id.split('-')[1] || id} 
                                   </span>
                                 ))}
                               </div>
                               {booking.extraSamples && (
-                                <div className="mt-3">
-                                  <h4 className="font-bold text-gray-900">Extra Samples:</h4>
-                                  <p className="text-gray-600 italic">{booking.extraSamples}</p>
+                                <div className="mt-4 p-4 bg-white rounded-2xl border-2 border-slate-100 text-xs italic text-slate-600 leading-relaxed shadow-sm">
+                                  <span className="not-italic font-black block mb-1 uppercase text-[9px] text-indigo-600 tracking-widest">Loose Items:</span>
+                                  {booking.extraSamples}
                                 </div>
                               )}
                            </div>
-                           <div className="border-l pl-4 border-gray-200">
-                              <div className="mb-2">
-                                <span className="font-bold text-gray-900">Sales Person: </span>
-                                <span className="text-gray-600">{booking.salesPerson}</span>
+                           
+                           <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 pb-2 flex items-center gap-2">
+                                <User className="w-3 h-3" /> Contact Information
+                              </h4>
+                              <div className="space-y-3">
+                                 <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                    <Mail className="w-4 h-4 text-slate-400" />
+                                    {booking.customer.email}
+                                 </div>
+                                 <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                    <Phone className="w-4 h-4 text-slate-400" />
+                                    {booking.customer.phone}
+                                 </div>
+                                 <div className="flex items-center gap-3 text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-full">
+                                    <User className="w-3 h-3" />
+                                    REP: {booking.salesPerson}
+                                 </div>
                               </div>
-                              <div className="mb-2">
-                                <span className="font-bold text-gray-900">Phone: </span>
-                                <span className="text-gray-600">{booking.customer.phone}</span>
-                              </div>
-                              <div>
-                                <h4 className="font-bold text-gray-900">Notes:</h4>
-                                <p className="text-gray-600 whitespace-pre-wrap">{booking.notes || 'No notes.'}</p>
-                              </div>
+                           </div>
+
+                           <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 pb-2 flex items-center gap-2">
+                                <ExternalLink className="w-3 h-3" /> Operational Context
+                              </h4>
+                              <p className="text-xs text-slate-600 leading-relaxed bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm min-h-[80px]">
+                                {booking.notes || 'No specific operational notes provided.'}
+                              </p>
                            </div>
                         </div>
                       </td>
