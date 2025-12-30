@@ -154,19 +154,16 @@ export const getKits = async (): Promise<Kit[]> => {
     // Auto-Seeding Logic
     if (Array.isArray(data) && data.length === 0) {
       console.log('Database empty. Seeding with default catalogue...');
-      const seedKits: Kit[] = RAW_KITS.map(raw => ({
-        id: generateId(),
-        kitNumber: raw.no,
-        supplier: raw.sup,
-        category: raw.cat,
-        description: raw.desc,
-        bay: raw.bay,
-        sizes: raw.size
-      })).sort((a, b) => (parseInt(a.kitNumber) || 0) - (parseInt(b.kitNumber) || 0));
-
-      // Batch upload (handling one by one to avoid payload limits, could be optimized)
-      await Promise.all(seedKits.map(k => addKit(k)));
-      return seedKits;
+      await importData(RAW_KITS);
+      return RAW_KITS.map(k => ({
+         id: generateId(), // ID won't match exactly without a read, but it seeds the DB
+         kitNumber: k.no,
+         supplier: k.sup,
+         category: k.cat,
+         description: k.desc,
+         bay: k.bay,
+         sizes: k.size
+      })) as any; 
     }
 
     return data;
@@ -182,6 +179,36 @@ export const addKit = async (kit: Kit): Promise<void> => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(kit)
   });
+};
+
+export const importData = async (jsonData: any[]): Promise<number> => {
+  let count = 0;
+  for (const item of jsonData) {
+    let kit: Kit;
+
+    // Handle legacy format (from RAW_KITS style or old exports)
+    if (item.no || item.sup || item.cat) {
+       kit = {
+         id: generateId(),
+         kitNumber: item.no || item.kitNumber || '?',
+         supplier: item.sup || item.supplier || '',
+         category: item.cat || item.category || '',
+         description: item.desc || item.description || '',
+         bay: item.bay || '',
+         sizes: item.size || item.sizes || ''
+       };
+    } else {
+       // Assume standard Kit format
+       kit = {
+         ...item,
+         id: item.id || generateId()
+       };
+    }
+    
+    await addKit(kit);
+    count++;
+  }
+  return count;
 };
 
 export const updateKit = async (updatedKit: Kit): Promise<void> => {
