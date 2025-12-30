@@ -9,26 +9,10 @@ const LS_KEYS = {
 
 // Track connection status
 let isUsingCloud = false;
-let lastConnectionError = "";
+let lastError = "";
 
 export const getStorageStatus = () => isUsingCloud;
-export const getConnectionError = () => lastConnectionError;
-
-// --- SEED DATA ---
-const RAW_KITS = [
-  { no: "001", sup: "TDP", cat: "Hoodies", desc: "001 Mixed ST PETERS Hoodies", bay: "BAY 8", size: "4-16, S-3XL" },
-  { no: "002", sup: "TDP*", cat: "Hoodies", desc: "002 - ST PETERS MIXED", bay: "BAY 7", size: "6-16, XS-3XL" },
-  { no: "96", sup: "TDP", cat: "Trackpants", desc: "96 MELBA Copeland", bay: "BAY 9", size: "G12,14 Ladies 6-20 and Mens 10-3XL" }
-];
-
-export const generateId = (): string => {
-  try {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-  } catch (e) {}
-  return 'id-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-};
+export const getConnectionError = () => lastError;
 
 // --- HELPER: Hybrid Cloud/Local Storage ---
 const getFromLocal = <T>(key: string): T[] => {
@@ -44,67 +28,97 @@ const saveToLocal = (key: string, data: any[]) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
+export const generateId = (): string => {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+  } catch (e) {}
+  return 'id-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
 // --- Kit Management ---
 
 export const getKits = async (): Promise<Kit[]> => {
+  let localData = getFromLocal<Kit>(LS_KEYS.KITS);
+  
   try {
     const res = await fetch(`${API_BASE}/kits`);
-    
-    // Check if we got HTML (Soft 404 from SPA fallback) instead of JSON
     const contentType = res.headers.get("content-type");
-    if (contentType && contentType.includes("text/html")) {
-        throw new Error("Backend API not reachable (Received HTML). Server may be starting or build failed.");
-    }
 
-    if (!res.ok) {
-       throw new Error(`API returned ${res.status}: ${res.statusText}`);
+    // Check if we got a valid JSON response from the API
+    if (res.ok && contentType && contentType.includes("application/json")) {
+      const cloudData = await res.json();
+      
+      // SUCCESS: We are connected to the cloud
+      isUsingCloud = true;
+      lastError = "";
+      
+      // Update local cache with fresh cloud data
+      saveToLocal(LS_KEYS.KITS, cloudData);
+      return cloudData;
+    } else {
+      throw new Error("API not reachable");
     }
-
-    const data = await res.json();
-    
-    // API is working
-    isUsingCloud = true;
-    lastConnectionError = "";
-    
-    // Update local cache
-    if (data.length > 0) {
-      saveToLocal(LS_KEYS.KITS, data);
-    }
-    
-    return data;
   } catch (e) {
-    console.warn("Using LocalStorage for Kits due to:", e);
+    // FAIL: Switch to offline mode
+    console.warn("Cloud Sync Failed:", e);
     isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    
-    let localData = getFromLocal<Kit>(LS_KEYS.KITS);
-    
-    // Auto-Seeding for LocalStorage
-    if (localData.length === 0) {
-      await importData(RAW_KITS);
-      localData = getFromLocal<Kit>(LS_KEYS.KITS);
-    }
+    lastError = "Backend unreachable";
     return localData;
   }
 };
 
 export const addKit = async (kit: Kit): Promise<void> => {
+  // 1. Optimistic UI Update (Save to local immediately)
+  const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+  kits.push(kit);
+  saveToLocal(LS_KEYS.KITS, kits);
+
+  // 2. Try to Sync to Cloud
   try {
     const res = await fetch(`${API_BASE}/kits`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(kit)
     });
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
-    isUsingCloud = true;
-    lastConnectionError = "";
+    if (res.ok) isUsingCloud = true;
   } catch (e) {
-    console.warn("API Write Failed - Saving Locally", e);
     isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
-    kits.push(kit);
+    console.warn("Saved locally, upload failed.");
+  }
+};
+
+export const updateKit = async (updatedKit: Kit): Promise<void> => {
+  const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+  const index = kits.findIndex(k => k.id === updatedKit.id);
+  if (index !== -1) {
+    kits[index] = updatedKit;
     saveToLocal(LS_KEYS.KITS, kits);
+  }
+
+  try {
+    await fetch(`${API_BASE}/kits/${updatedKit.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedKit)
+    });
+    isUsingCloud = true;
+  } catch (e) {
+    isUsingCloud = false;
+  }
+};
+
+export const deleteKit = async (id: string): Promise<void> => {
+  const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+  const filtered = kits.filter(k => k.id !== id);
+  saveToLocal(LS_KEYS.KITS, filtered);
+
+  try {
+    await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
+    isUsingCloud = true;
+  } catch (e) {
+    isUsingCloud = false;
   }
 };
 
@@ -112,7 +126,7 @@ export const importData = async (jsonData: any[]): Promise<number> => {
   let count = 0;
   for (const item of jsonData) {
     let kit: Kit;
-
+    // Handle various CSV/JSON formats if needed
     if (item.no || item.sup || item.cat) {
        kit = {
          id: generateId(),
@@ -127,118 +141,81 @@ export const importData = async (jsonData: any[]): Promise<number> => {
        kit = { ...item, id: item.id || generateId() };
     }
     
-    await addKit(kit);
+    // Save to local
+    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+    kits.push(kit);
+    saveToLocal(LS_KEYS.KITS, kits);
     count++;
+
+    // Try to push to cloud one by one (basic implementation)
+    try {
+       await fetch(`${API_BASE}/kits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(kit)
+      });
+    } catch(e) {}
   }
   return count;
-};
-
-export const updateKit = async (updatedKit: Kit): Promise<void> => {
-  try {
-    const res = await fetch(`${API_BASE}/kits/${updatedKit.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedKit)
-    });
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
-    isUsingCloud = true;
-    lastConnectionError = "";
-  } catch (e) {
-    isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
-    const index = kits.findIndex(k => k.id === updatedKit.id);
-    if (index !== -1) {
-      kits[index] = updatedKit;
-      saveToLocal(LS_KEYS.KITS, kits);
-    }
-  }
-};
-
-export const deleteKit = async (id: string): Promise<void> => {
-  try {
-    const res = await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
-    isUsingCloud = true;
-    lastConnectionError = "";
-  } catch (e) {
-    isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
-    const filtered = kits.filter(k => k.id !== id);
-    saveToLocal(LS_KEYS.KITS, filtered);
-  }
 };
 
 // --- Booking Management ---
 
 export const getBookings = async (): Promise<Booking[]> => {
+  let localData = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
+
   try {
     const res = await fetch(`${API_BASE}/bookings`);
-
-    // Check if we got HTML (Soft 404 from SPA fallback) instead of JSON
     const contentType = res.headers.get("content-type");
-    if (contentType && contentType.includes("text/html")) {
-        throw new Error("Backend API not reachable (Received HTML). Server may be starting or build failed.");
-    }
 
-    if (!res.ok) {
-       throw new Error(`API returned ${res.status}`);
+    if (res.ok && contentType && contentType.includes("application/json")) {
+      const cloudData = await res.json();
+      isUsingCloud = true;
+      saveToLocal(LS_KEYS.BOOKINGS, cloudData);
+      return cloudData;
+    } else {
+      throw new Error("API unreachable");
     }
-    const data = await res.json();
-    isUsingCloud = true;
-    lastConnectionError = "";
-    if (data.length > 0) {
-      saveToLocal(LS_KEYS.BOOKINGS, data);
-    }
-    return data;
   } catch (e) {
-    console.warn("Using LocalStorage for Bookings:", e);
     isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    return getFromLocal<Booking>(LS_KEYS.BOOKINGS);
+    return localData;
   }
 };
 
 export const saveBooking = async (booking: Booking): Promise<void> => {
+  const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
+  bookings.push(booking);
+  saveToLocal(LS_KEYS.BOOKINGS, bookings);
+
   try {
-    const res = await fetch(`${API_BASE}/bookings`, {
+    await fetch(`${API_BASE}/bookings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(booking)
     });
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
-    lastConnectionError = "";
   } catch (e) {
-    console.warn("API Write Failed - Saving Locally", e);
     isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
-    bookings.push(booking);
-    saveToLocal(LS_KEYS.BOOKINGS, bookings);
   }
 };
 
 export const updateBookingStatus = async (id: string, status: BookingStatus): Promise<void> => {
+  const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
+  const booking = bookings.find(b => b.id === id);
+  if (booking) {
+    booking.status = status;
+    saveToLocal(LS_KEYS.BOOKINGS, bookings);
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/bookings/${id}/status`, {
+    await fetch(`${API_BASE}/bookings/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
-    lastConnectionError = "";
   } catch (e) {
     isUsingCloud = false;
-    lastConnectionError = e instanceof Error ? e.message : String(e);
-    const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
-    const booking = bookings.find(b => b.id === id);
-    if (booking) {
-      booking.status = status;
-      saveToLocal(LS_KEYS.BOOKINGS, bookings);
-    }
   }
 };
 

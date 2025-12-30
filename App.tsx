@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getBookings, updateBookingStatus, getStorageStatus, getConnectionError } from './services/storage';
+import { getBookings, updateBookingStatus, getStorageStatus } from './services/storage';
 import { Booking } from './types';
 import { NewBookingForm } from './components/NewBookingForm';
 import { BookingList } from './components/BookingList';
@@ -12,12 +12,12 @@ import {
   Package, 
   RefreshCw, 
   ShieldCheck, 
-  ShieldAlert,
+  WifiOff, 
   Clock,
   Archive,
   Layers,
   Activity,
-  WifiOff
+  AlertTriangle
 } from 'lucide-react';
 
 type View = 'DASHBOARD' | 'NEW_BOOKING';
@@ -28,9 +28,8 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('SAMPLES_OUT');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCloudConnected, setIsCloudConnected] = useState(true);
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(Date.now());
-  const [errorDetails, setErrorDetails] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -38,18 +37,11 @@ const App: React.FC = () => {
       try {
         const data = await getBookings();
         setBookings(data);
-        const connected = getStorageStatus();
-        setIsCloudConnected(connected);
-        if (!connected) {
-          setErrorDetails(getConnectionError());
-        } else {
-          setErrorDetails('');
-        }
+        // Check if the fetch was successful from cloud
+        setIsCloudConnected(getStorageStatus());
         initEmailService();
       } catch (error) {
         console.error("Failed to load bookings", error);
-        setIsCloudConnected(false);
-        setErrorDetails(error instanceof Error ? error.message : "Unknown System Error");
       } finally {
         setIsLoading(false);
       }
@@ -116,9 +108,9 @@ const App: React.FC = () => {
                   Cloud Synced
                </div>
              ) : (
-               <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-r border-white/10" title="Data is saving to this browser only">
-                  <ShieldAlert className="w-3 h-3 text-rose-500" />
-                  <span className="text-rose-400">Local Only (Unsynced)</span>
+               <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-rose-300 uppercase tracking-widest border-r border-white/10" title="Data is saved to this device only">
+                  <WifiOff className="w-3 h-3" />
+                  Offline Mode
                </div>
              )}
              <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -150,22 +142,21 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {!isCloudConnected && (
-          <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-8 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
-             <div className="bg-rose-100 p-2 rounded-lg text-rose-600 mt-1">
-               <WifiOff className="w-5 h-5" />
-             </div>
-             <div className="flex-grow">
-               <h4 className="text-sm font-black text-rose-700 uppercase tracking-wide">Sync Issue Detected</h4>
-               <p className="text-xs text-rose-600 font-medium mb-2">The application is running in local fallback mode. Changes made on this device will NOT be visible to other users until the cloud connection is restored.</p>
-               {errorDetails && (
-                 <div className="bg-rose-100/50 p-2 rounded-lg border border-rose-200">
-                    <p className="text-[10px] font-bold text-rose-800 uppercase tracking-wider mb-1">Diagnostic Info:</p>
-                    <code className="text-[10px] font-mono text-rose-700 break-all">{errorDetails}</code>
-                 </div>
-               )}
-             </div>
-          </div>
+        
+        {/* Connection Warning Banner */}
+        {!isCloudConnected && !isLoading && (
+           <div className="mb-8 p-4 bg-rose-50 border-2 border-rose-100 rounded-2xl flex items-center gap-4 text-rose-800 animate-in fade-in slide-in-from-top-2">
+              <div className="bg-white p-2 rounded-xl shadow-sm">
+                 <AlertTriangle className="w-5 h-5 text-rose-500" />
+              </div>
+              <div className="flex-1">
+                 <h3 className="text-xs font-black uppercase tracking-widest">Connection Issue</h3>
+                 <p className="text-sm font-medium opacity-80 mt-1">Changes are saved to this device only. To enable Multi-Device Sync, ensure the application is deployed to Azure and the Database is connected.</p>
+              </div>
+              <button onClick={() => setLastUpdated(Date.now())} className="px-4 py-2 bg-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-100 transition-colors">
+                 Retry
+              </button>
+           </div>
         )}
 
         {view === 'NEW_BOOKING' ? (
