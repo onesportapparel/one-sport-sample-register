@@ -19,16 +19,16 @@
       "direction": "in",
       "name": "kitsIn",
       "connectionStringSetting": "CosmosDBConnectionString",
-      "databaseName": "OneSportDB",
-      "collectionName": "Kits"
+      "databaseName": "KitRegisterDB",
+      "collectionName": "kits"
     },
     {
       "type": "cosmosDB",
       "direction": "out",
       "name": "kitsOut",
       "connectionStringSetting": "CosmosDBConnectionString",
-      "databaseName": "OneSportDB",
-      "collectionName": "Kits"
+      "databaseName": "KitRegisterDB",
+      "collectionName": "kits"
     }
   ]
 }

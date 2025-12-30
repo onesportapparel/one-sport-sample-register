@@ -1,7 +1,15 @@
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions"
 
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest, bookingsIn: any[]): Promise<void> {
+const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest, bookingsIn: any[]):
+ Promise<void> {
+        } catch (error) {
+                    context.log.error('Error in bookings function:', error);
+                            context.res = {
+                                            status: 500,
+                                                        body: { error: 'Database error', details: error.message || String(error) }
+                                                                };
+                                                                    }
     const method = req.method.toLowerCase();
     const id = context.bindingData.id;
     const subaction = context.bindingData.subaction;
