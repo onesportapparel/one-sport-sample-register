@@ -1,6 +1,7 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { bookingsContainer } from "../db";
+import { randomUUID } from "crypto";
 
 // GET ALL BOOKINGS
 app.http('getBookings', {
@@ -24,7 +25,7 @@ app.http('createBooking', {
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         try {
             const booking = await request.json() as any;
-            if(!booking.id) booking.id = crypto.randomUUID();
+            if(!booking.id) booking.id = randomUUID();
             const { resource } = await bookingsContainer.items.create(booking);
             return { status: 201, jsonBody: resource };
         } catch (error) {
