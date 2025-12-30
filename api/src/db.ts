@@ -2,20 +2,29 @@
 import { CosmosClient } from "@azure/cosmos";
 
 // Lazy initialization of the Cosmos Client
-// This prevents the Function App from crashing on startup if the connection string is missing
 let client: CosmosClient | null = null;
 
 const getClient = () => {
   if (client) return client;
 
+  // Retrieve connection string from environment variables
+  // In Azure Static Web Apps, set this in Environment Variables settings
   const connectionString = process.env.COSMOS_DB_CONNECTION_STRING;
+  
   if (!connectionString) {
+    // We return null instead of throwing here to ensure the module loads successfully.
+    // The error will be thrown when a specific function tries to use the DB.
     console.warn("COSMOS_DB_CONNECTION_STRING is missing");
     return null;
   }
 
-  client = new CosmosClient(connectionString);
-  return client;
+  try {
+    client = new CosmosClient(connectionString);
+    return client;
+  } catch (err) {
+    console.error("Failed to initialize Cosmos Client", err);
+    return null;
+  }
 };
 
 // Helper to get container, creating if not exists
@@ -23,15 +32,19 @@ export const getContainer = async (containerName: string) => {
   const cosmosClient = getClient();
   
   if (!cosmosClient) {
-    throw new Error("Database configuration missing (COSMOS_DB_CONNECTION_STRING)");
+    throw new Error("Database configuration missing. Please check 'COSMOS_DB_CONNECTION_STRING' in Application Settings.");
   }
 
-  // UPDATED: Using the specific database name provided
   const DATABASE_ID = "onesport-cosmos-db";
 
-  const { database } = await cosmosClient.databases.createIfNotExists({ id: DATABASE_ID });
-  const { container } = await database.containers.createIfNotExists({ id: containerName });
-  return container;
+  try {
+    const { database } = await cosmosClient.databases.createIfNotExists({ id: DATABASE_ID });
+    const { container } = await database.containers.createIfNotExists({ id: containerName });
+    return container;
+  } catch (error) {
+    console.error(`Error connecting to container ${containerName}:`, error);
+    throw new Error(`Database Error: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };
 
 // Export lazy getters
