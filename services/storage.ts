@@ -7,6 +7,11 @@ const LS_KEYS = {
   BOOKINGS: 'os_bookings_v1'
 };
 
+// Track connection status
+let isUsingCloud = false;
+
+export const getStorageStatus = () => isUsingCloud;
+
 // --- SEED DATA ---
 const RAW_KITS = [
   { no: "001", sup: "TDP", cat: "Hoodies", desc: "001 Mixed ST PETERS Hoodies", bay: "BAY 8", size: "4-16, S-3XL" },
@@ -149,8 +154,6 @@ export const generateId = (): string => {
 };
 
 // --- HELPER: Hybrid Cloud/Local Storage ---
-// This ensures the app works even if the API backend is not running (Development/Demo mode)
-
 const getFromLocal = <T>(key: string): T[] => {
   try {
     const item = localStorage.getItem(key);
@@ -179,15 +182,10 @@ export const getKits = async (): Promise<Kit[]> => {
     }
     const data = await res.json();
     
-    // Safety check: If API returns empty list but we have local data,
-    // don't overwrite local data immediately unless we are sure.
-    // However, for simplicity in this hybrid model: 
-    // If API works, it is the source of truth.
-    // If user just imported to LocalStorage because API was down, 
-    // and now API is up but empty, we have a sync problem.
-    // Ideally, we'd push Local to API here, but let's just cache what we get
-    // ONLY if it's not empty, OR if we don't have local data.
+    // API is working
+    isUsingCloud = true;
     
+    // Update local cache
     if (data.length > 0) {
       saveToLocal(LS_KEYS.KITS, data);
     }
@@ -195,6 +193,7 @@ export const getKits = async (): Promise<Kit[]> => {
     return data;
   } catch (e) {
     console.warn("Using LocalStorage for Kits (Offline/Dev Mode/API Error)");
+    isUsingCloud = false;
     let localData = getFromLocal<Kit>(LS_KEYS.KITS);
     
     // Auto-Seeding for LocalStorage
@@ -214,8 +213,10 @@ export const addKit = async (kit: Kit): Promise<void> => {
       body: JSON.stringify(kit)
     });
     if (!res.ok) throw new Error("API Error");
+    isUsingCloud = true;
   } catch (e) {
-    // Fallback to local storage
+    console.warn("API Write Failed - Saving Locally");
+    isUsingCloud = false;
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     kits.push(kit);
     saveToLocal(LS_KEYS.KITS, kits);
@@ -227,7 +228,6 @@ export const importData = async (jsonData: any[]): Promise<number> => {
   for (const item of jsonData) {
     let kit: Kit;
 
-    // Handle legacy format (from RAW_KITS style or old exports)
     if (item.no || item.sup || item.cat) {
        kit = {
          id: generateId(),
@@ -239,11 +239,7 @@ export const importData = async (jsonData: any[]): Promise<number> => {
          sizes: item.size || item.sizes || ''
        };
     } else {
-       // Assume standard Kit format
-       kit = {
-         ...item,
-         id: item.id || generateId()
-       };
+       kit = { ...item, id: item.id || generateId() };
     }
     
     await addKit(kit);
@@ -260,7 +256,9 @@ export const updateKit = async (updatedKit: Kit): Promise<void> => {
       body: JSON.stringify(updatedKit)
     });
     if (!res.ok) throw new Error("API Error");
+    isUsingCloud = true;
   } catch (e) {
+    isUsingCloud = false;
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     const index = kits.findIndex(k => k.id === updatedKit.id);
     if (index !== -1) {
@@ -274,7 +272,9 @@ export const deleteKit = async (id: string): Promise<void> => {
   try {
     const res = await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error("API Error");
+    isUsingCloud = true;
   } catch (e) {
+    isUsingCloud = false;
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     const filtered = kits.filter(k => k.id !== id);
     saveToLocal(LS_KEYS.KITS, filtered);
@@ -292,12 +292,14 @@ export const getBookings = async (): Promise<Booking[]> => {
        throw new Error("API Error");
     }
     const data = await res.json();
+    isUsingCloud = true;
     if (data.length > 0) {
       saveToLocal(LS_KEYS.BOOKINGS, data);
     }
     return data;
   } catch (e) {
     console.warn("Using LocalStorage for Bookings");
+    isUsingCloud = false;
     return getFromLocal<Booking>(LS_KEYS.BOOKINGS);
   }
 };
@@ -310,7 +312,10 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
       body: JSON.stringify(booking)
     });
     if (!res.ok) throw new Error("API Error");
+    isUsingCloud = true;
   } catch (e) {
+    console.warn("API Write Failed - Saving Locally");
+    isUsingCloud = false;
     const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
     bookings.push(booking);
     saveToLocal(LS_KEYS.BOOKINGS, bookings);
@@ -325,7 +330,9 @@ export const updateBookingStatus = async (id: string, status: BookingStatus): Pr
       body: JSON.stringify({ status })
     });
     if (!res.ok) throw new Error("API Error");
+    isUsingCloud = true;
   } catch (e) {
+    isUsingCloud = false;
     const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
     const booking = bookings.find(b => b.id === id);
     if (booking) {
