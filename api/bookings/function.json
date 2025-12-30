@@ -19,16 +19,16 @@
       "direction": "in",
       "name": "bookingsIn",
       "connectionStringSetting": "CosmosDBConnectionString",
-      "databaseName": "OneSportDB",
-      "collectionName": "Bookings"
+      "databaseName": "KitRegisterDB",
+      "collectionName": "bookings"
     },
     {
       "type": "cosmosDB",
       "direction": "out",
       "name": "bookingsOut",
       "connectionStringSetting": "CosmosDBConnectionString",
-      "databaseName": "OneSportDB",
-      "collectionName": "Bookings"
+      "databaseName": "KitRegisterDB",
+      "collectionName": "bookings"
     }
   ]
 }
