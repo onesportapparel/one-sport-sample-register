@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getBookings, updateBookingStatus, getStorageStatus } from './services/storage';
+import { getBookings, updateBookingStatus, getStorageStatus, getConnectionError } from './services/storage';
 import { Booking } from './types';
 import { NewBookingForm } from './components/NewBookingForm';
 import { BookingList } from './components/BookingList';
@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(Date.now());
 
   useEffect(() => {
@@ -39,9 +40,11 @@ const App: React.FC = () => {
         setBookings(data);
         // Check if the fetch was successful from cloud
         setIsCloudConnected(getStorageStatus());
+        setConnectionError(getConnectionError());
         initEmailService();
       } catch (error) {
         console.error("Failed to load bookings", error);
+        setConnectionError("Application Failure");
       } finally {
         setIsLoading(false);
       }
@@ -145,13 +148,16 @@ const App: React.FC = () => {
         
         {/* Connection Warning Banner */}
         {!isCloudConnected && !isLoading && (
-           <div className="mb-8 p-4 bg-rose-50 border-2 border-rose-100 rounded-2xl flex items-center gap-4 text-rose-800 animate-in fade-in slide-in-from-top-2">
+           <div className="mb-8 p-4 bg-rose-50 border-2 border-rose-100 rounded-2xl flex items-center gap-4 text-rose-800 animate-in fade-in slide-in-from-top-2 shadow-lg shadow-rose-100">
               <div className="bg-white p-2 rounded-xl shadow-sm">
-                 <AlertTriangle className="w-5 h-5 text-rose-500" />
+                 <AlertTriangle className="w-6 h-6 text-rose-500" />
               </div>
               <div className="flex-1">
-                 <h3 className="text-xs font-black uppercase tracking-widest">Connection Issue</h3>
-                 <p className="text-sm font-medium opacity-80 mt-1">Changes are saved to this device only. To enable Multi-Device Sync, ensure the application is deployed to Azure and the Database is connected.</p>
+                 <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black uppercase tracking-widest">Connection Issue</h3>
+                    <span className="bg-rose-200 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">{connectionError || "Unknown Error"}</span>
+                 </div>
+                 <p className="text-sm font-medium opacity-80 mt-1">Changes are saved to this device only. Ensure your Database Connection String is valid in Azure Portal.</p>
               </div>
               <button onClick={() => setLastUpdated(Date.now())} className="px-4 py-2 bg-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-100 transition-colors">
                  Retry

@@ -46,36 +46,39 @@ export const getKits = async (): Promise<Kit[]> => {
     const res = await fetch(`${API_BASE}/kits`);
     const contentType = res.headers.get("content-type");
 
-    // Check if we got a valid JSON response from the API
     if (res.ok && contentType && contentType.includes("application/json")) {
       const cloudData = await res.json();
-      
-      // SUCCESS: We are connected to the cloud
       isUsingCloud = true;
       lastError = "";
-      
-      // Update local cache with fresh cloud data
       saveToLocal(LS_KEYS.KITS, cloudData);
       return cloudData;
     } else {
-      throw new Error("API not reachable");
+      // Capture detailed error from server
+      const errText = await res.text();
+      const statusMsg = `API Error ${res.status}: ${res.statusText}`;
+      console.warn(statusMsg, errText.substring(0, 500)); 
+      
+      // If 500, it's likely the DB connection failed
+      if (res.status === 500) {
+        lastError = "Server Error (Check Database Connection)";
+      } else {
+        lastError = statusMsg;
+      }
+      throw new Error(statusMsg);
     }
   } catch (e) {
-    // FAIL: Switch to offline mode
-    console.warn("Cloud Sync Failed:", e);
+    console.error("Cloud Sync Failed (Kits):", e);
     isUsingCloud = false;
-    lastError = "Backend unreachable";
+    lastError = e instanceof Error ? e.message : "Backend unreachable";
     return localData;
   }
 };
 
 export const addKit = async (kit: Kit): Promise<void> => {
-  // 1. Optimistic UI Update (Save to local immediately)
   const kits = getFromLocal<Kit>(LS_KEYS.KITS);
   kits.push(kit);
   saveToLocal(LS_KEYS.KITS, kits);
 
-  // 2. Try to Sync to Cloud
   try {
     const res = await fetch(`${API_BASE}/kits`, {
       method: 'POST',
@@ -83,6 +86,7 @@ export const addKit = async (kit: Kit): Promise<void> => {
       body: JSON.stringify(kit)
     });
     if (res.ok) isUsingCloud = true;
+    else console.warn("Upload failed", await res.text());
   } catch (e) {
     isUsingCloud = false;
     console.warn("Saved locally, upload failed.");
@@ -126,7 +130,6 @@ export const importData = async (jsonData: any[]): Promise<number> => {
   let count = 0;
   for (const item of jsonData) {
     let kit: Kit;
-    // Handle various CSV/JSON formats if needed
     if (item.no || item.sup || item.cat) {
        kit = {
          id: generateId(),
@@ -141,13 +144,11 @@ export const importData = async (jsonData: any[]): Promise<number> => {
        kit = { ...item, id: item.id || generateId() };
     }
     
-    // Save to local
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     kits.push(kit);
     saveToLocal(LS_KEYS.KITS, kits);
     count++;
 
-    // Try to push to cloud one by one (basic implementation)
     try {
        await fetch(`${API_BASE}/kits`, {
         method: 'POST',
@@ -174,9 +175,12 @@ export const getBookings = async (): Promise<Booking[]> => {
       saveToLocal(LS_KEYS.BOOKINGS, cloudData);
       return cloudData;
     } else {
-      throw new Error("API unreachable");
+      const errText = await res.text();
+      console.warn(`API Error (Bookings): [${res.status}]`, errText.substring(0, 500));
+      throw new Error(`API ${res.status}: ${res.statusText}`);
     }
   } catch (e) {
+    console.error("Cloud Sync Failed (Bookings):", e);
     isUsingCloud = false;
     return localData;
   }
