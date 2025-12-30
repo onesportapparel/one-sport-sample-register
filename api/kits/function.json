@@ -1,0 +1,34 @@
+
+{
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": ["get", "post", "put", "delete"],
+      "route": "kits/{id?}"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"
+    },
+    {
+      "type": "cosmosDB",
+      "direction": "in",
+      "name": "kitsIn",
+      "connectionStringSetting": "CosmosDBConnectionString",
+      "databaseName": "OneSportDB",
+      "collectionName": "Kits"
+    },
+    {
+      "type": "cosmosDB",
+      "direction": "out",
+      "name": "kitsOut",
+      "connectionStringSetting": "CosmosDBConnectionString",
+      "databaseName": "OneSportDB",
+      "collectionName": "Kits"
+    }
+  ]
+}
