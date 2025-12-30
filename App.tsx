@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getBookings, updateBookingStatus } from './services/storage';
+import { getBookings, updateBookingStatus, getStorageStatus } from './services/storage';
 import { Booking } from './types';
 import { NewBookingForm } from './components/NewBookingForm';
 import { BookingList } from './components/BookingList';
@@ -8,16 +8,16 @@ import { InventoryManager } from './components/InventoryManager';
 import { initEmailService, sendEmailNotification } from './services/email';
 import { printBooking } from './services/print';
 import { 
-  LayoutDashboard, 
   Plus, 
-  History, 
   Package, 
   RefreshCw, 
   ShieldCheck, 
+  ShieldAlert,
   Clock,
   Archive,
   Layers,
-  Activity
+  Activity,
+  WifiOff
 } from 'lucide-react';
 
 type View = 'DASHBOARD' | 'NEW_BOOKING';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('SAMPLES_OUT');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCloudConnected, setIsCloudConnected] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(Date.now());
 
   useEffect(() => {
@@ -36,9 +37,11 @@ const App: React.FC = () => {
       try {
         const data = await getBookings();
         setBookings(data);
+        setIsCloudConnected(getStorageStatus());
         initEmailService();
       } catch (error) {
         console.error("Failed to load bookings", error);
+        setIsCloudConnected(false);
       } finally {
         setIsLoading(false);
       }
@@ -92,17 +95,24 @@ const App: React.FC = () => {
       <header className="bg-slate-900 text-white sticky top-0 z-50 px-6 h-20 flex items-center justify-between border-b border-white/5 backdrop-blur-md">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('DASHBOARD')}>
-            <div className="w-2 h-8 bg-indigo-600 rounded-sm -skew-x-12 group-hover:bg-indigo-500 transition-colors shadow-[0_0_15px_rgba(79,70,229,0.5)]"></div>
+            <div className={`w-2 h-8 rounded-sm -skew-x-12 transition-colors shadow-[0_0_15px_rgba(79,70,229,0.5)] ${isCloudConnected ? 'bg-indigo-600 group-hover:bg-indigo-500' : 'bg-rose-500 group-hover:bg-rose-400'}`}></div>
             <h1 className="text-xl font-black tracking-tighter uppercase italic">
               One Sport <span className="text-slate-500">Kit Register</span>
             </h1>
           </div>
           
           <nav className="hidden lg:flex items-center gap-1 bg-white/5 p-1 rounded-xl">
-             <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-r border-white/10">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                Cloud Synced
-             </div>
+             {isCloudConnected ? (
+               <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-r border-white/10">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  Cloud Synced
+               </div>
+             ) : (
+               <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-r border-white/10" title="Data is saving to this browser only">
+                  <ShieldAlert className="w-3 h-3 text-rose-500" />
+                  <span className="text-rose-400">Local Only (Unsynced)</span>
+               </div>
+             )}
              <div className="px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 <Activity className="w-3 h-3 text-indigo-400" />
                 Ops v2.4
@@ -132,6 +142,18 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
+        {!isCloudConnected && (
+          <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-8 flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
+             <div className="bg-rose-100 p-2 rounded-lg text-rose-600">
+               <WifiOff className="w-5 h-5" />
+             </div>
+             <div>
+               <h4 className="text-sm font-black text-rose-700 uppercase tracking-wide">Sync Issue Detected</h4>
+               <p className="text-xs text-rose-600 font-medium">The application is running in local fallback mode. Changes made on this device will NOT be visible to other users until the cloud connection is restored.</p>
+             </div>
+          </div>
+        )}
+
         {view === 'NEW_BOOKING' ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <NewBookingForm 
