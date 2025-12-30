@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { getKits, addKit, deleteKit, updateKit, checkAvailability, generateId } from '../services/storage';
+import React, { useState, useEffect, useRef } from 'react';
+import { getKits, addKit, deleteKit, updateKit, checkAvailability, generateId, importData } from '../services/storage';
 import { Kit, KitAvailability } from '../types';
 import { 
   Search, 
@@ -11,7 +11,9 @@ import {
   MapPin, 
   Layers,
   Save,
-  RotateCcw
+  RotateCcw,
+  UploadCloud,
+  Loader2
 } from 'lucide-react';
 
 export const InventoryManager: React.FC = () => {
@@ -19,7 +21,9 @@ export const InventoryManager: React.FC = () => {
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
   const [availability, setAvailability] = useState<Record<string, KitAvailability>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formKit, setFormKit] = useState<Partial<Kit>>({
     kitNumber: '',
@@ -97,6 +101,37 @@ export const InventoryManager: React.FC = () => {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm("Importing will add all items from this file to your database. Continue?")) {
+      return;
+    }
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        if (Array.isArray(json)) {
+          const count = await importData(json);
+          alert(`Successfully imported ${count} items.`);
+          await loadData();
+        } else {
+          alert("Invalid file format: Root must be an array.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to parse JSON file.");
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const filteredKits = kits.filter(k => 
     k.kitNumber.toLowerCase().includes(search.toLowerCase()) || 
     k.category.toLowerCase().includes(search.toLowerCase()) ||
@@ -109,6 +144,15 @@ export const InventoryManager: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        accept=".json" 
+        className="hidden" 
+      />
+
       {/* Dynamic CRUD Interface */}
       <div className={`p-10 rounded-[2.5rem] border-2 transition-all shadow-xl ${editingId ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}>
         <div className="flex justify-between items-center mb-8">
@@ -116,9 +160,21 @@ export const InventoryManager: React.FC = () => {
              {editingId ? <RotateCcw className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
              {editingId ? 'Modify Asset' : 'Register New Asset'}
            </h3>
-           {editingId && (
-             <button onClick={() => { setEditingId(null); setFormKit({ kitNumber: '', supplier: '', category: '', description: '', bay: '', sizes: '' }); }} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-600">Cancel Override</button>
-           )}
+           <div className="flex gap-4 items-center">
+             {editingId && (
+               <button onClick={() => { setEditingId(null); setFormKit({ kitNumber: '', supplier: '', category: '', description: '', bay: '', sizes: '' }); }} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-600">Cancel Override</button>
+             )}
+             {!editingId && (
+               <button 
+                 onClick={() => fileInputRef.current?.click()} 
+                 disabled={isImporting}
+                 className="flex items-center gap-2 text-[10px] font-black text-indigo-600 bg-indigo-100 hover:bg-indigo-200 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+               >
+                 {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                 {isImporting ? 'Importing...' : 'Upload Backup'}
+               </button>
+             )}
+           </div>
         </div>
         
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-6 items-end">
