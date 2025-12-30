@@ -92,8 +92,10 @@ const App: React.FC = () => {
       <header className="bg-slate-900 text-white sticky top-0 z-50 px-6 h-20 flex items-center justify-between border-b border-white/5 backdrop-blur-md">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('DASHBOARD')}>
-            <div className="bg-indigo-600 text-white font-black p-2 rounded-lg text-xs transform group-hover:rotate-6 transition-transform shadow-lg shadow-indigo-500/20">ONE</div>
-            <h1 className="text-xl font-black tracking-tighter uppercase italic">Sport Register</h1>
+            <div className="w-2 h-8 bg-indigo-600 rounded-sm -skew-x-12 group-hover:bg-indigo-500 transition-colors shadow-[0_0_15px_rgba(79,70,229,0.5)]"></div>
+            <h1 className="text-xl font-black tracking-tighter uppercase italic">
+              One Sport <span className="text-slate-500">Kit Register</span>
+            </h1>
           </div>
           
           <nav className="hidden lg:flex items-center gap-1 bg-white/5 p-1 rounded-xl">

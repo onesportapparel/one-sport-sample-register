@@ -1,5 +1,5 @@
 
-# One Sport Sample Register
+# One Sport Kit Register
 
 A professional sizing kit management system designed for tracking sample bookings, collections, and returns.
 
