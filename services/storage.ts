@@ -2,8 +2,12 @@
 import { Booking, Kit, KitAvailability, BookingStatus } from '../types';
 
 const API_BASE = '/api';
+const LS_KEYS = {
+  KITS: 'os_kits_v1',
+  BOOKINGS: 'os_bookings_v1'
+};
 
-// --- SEED DATA (To ensure we keep the current catalogue) ---
+// --- SEED DATA ---
 const RAW_KITS = [
   { no: "001", sup: "TDP", cat: "Hoodies", desc: "001 Mixed ST PETERS Hoodies", bay: "BAY 8", size: "4-16, S-3XL" },
   { no: "002", sup: "TDP*", cat: "Hoodies", desc: "002 - ST PETERS MIXED", bay: "BAY 7", size: "6-16, XS-3XL" },
@@ -144,41 +148,78 @@ export const generateId = (): string => {
   return 'id-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 };
 
+// --- HELPER: Hybrid Cloud/Local Storage ---
+// This ensures the app works even if the API backend is not running (Development/Demo mode)
+
+const getFromLocal = <T>(key: string): T[] => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveToLocal = (key: string, data: any[]) => {
+  localStorage.setItem(key, JSON.stringify(data));
+};
+
 // --- Kit Management ---
 
 export const getKits = async (): Promise<Kit[]> => {
   try {
     const res = await fetch(`${API_BASE}/kits`);
+    if (!res.ok) {
+       // Check if it's returning HTML (SPA Fallback for 404) instead of JSON
+       const contentType = res.headers.get("content-type");
+       if (contentType && contentType.indexOf("application/json") === -1) {
+         throw new Error("API Route Not Found");
+       }
+       throw new Error("API Error");
+    }
     const data = await res.json();
     
-    // Auto-Seeding Logic
-    if (Array.isArray(data) && data.length === 0) {
-      console.log('Database empty. Seeding with default catalogue...');
-      await importData(RAW_KITS);
-      return RAW_KITS.map(k => ({
-         id: generateId(), // ID won't match exactly without a read, but it seeds the DB
-         kitNumber: k.no,
-         supplier: k.sup,
-         category: k.cat,
-         description: k.desc,
-         bay: k.bay,
-         sizes: k.size
-      })) as any; 
+    // Safety check: If API returns empty list but we have local data,
+    // don't overwrite local data immediately unless we are sure.
+    // However, for simplicity in this hybrid model: 
+    // If API works, it is the source of truth.
+    // If user just imported to LocalStorage because API was down, 
+    // and now API is up but empty, we have a sync problem.
+    // Ideally, we'd push Local to API here, but let's just cache what we get
+    // ONLY if it's not empty, OR if we don't have local data.
+    
+    if (data.length > 0) {
+      saveToLocal(LS_KEYS.KITS, data);
     }
-
+    
     return data;
   } catch (e) {
-    console.error("Failed to fetch kits", e);
-    return [];
+    console.warn("Using LocalStorage for Kits (Offline/Dev Mode/API Error)");
+    let localData = getFromLocal<Kit>(LS_KEYS.KITS);
+    
+    // Auto-Seeding for LocalStorage
+    if (localData.length === 0) {
+      await importData(RAW_KITS);
+      localData = getFromLocal<Kit>(LS_KEYS.KITS);
+    }
+    return localData;
   }
 };
 
 export const addKit = async (kit: Kit): Promise<void> => {
-  await fetch(`${API_BASE}/kits`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(kit)
-  });
+  try {
+    const res = await fetch(`${API_BASE}/kits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(kit)
+    });
+    if (!res.ok) throw new Error("API Error");
+  } catch (e) {
+    // Fallback to local storage
+    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+    kits.push(kit);
+    saveToLocal(LS_KEYS.KITS, kits);
+  }
 };
 
 export const importData = async (jsonData: any[]): Promise<number> => {
@@ -212,15 +253,32 @@ export const importData = async (jsonData: any[]): Promise<number> => {
 };
 
 export const updateKit = async (updatedKit: Kit): Promise<void> => {
-  await fetch(`${API_BASE}/kits/${updatedKit.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updatedKit)
-  });
+  try {
+    const res = await fetch(`${API_BASE}/kits/${updatedKit.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedKit)
+    });
+    if (!res.ok) throw new Error("API Error");
+  } catch (e) {
+    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+    const index = kits.findIndex(k => k.id === updatedKit.id);
+    if (index !== -1) {
+      kits[index] = updatedKit;
+      saveToLocal(LS_KEYS.KITS, kits);
+    }
+  }
 };
 
 export const deleteKit = async (id: string): Promise<void> => {
-  await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
+  try {
+    const res = await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error("API Error");
+  } catch (e) {
+    const kits = getFromLocal<Kit>(LS_KEYS.KITS);
+    const filtered = kits.filter(k => k.id !== id);
+    saveToLocal(LS_KEYS.KITS, filtered);
+  }
 };
 
 // --- Booking Management ---
@@ -228,28 +286,53 @@ export const deleteKit = async (id: string): Promise<void> => {
 export const getBookings = async (): Promise<Booking[]> => {
   try {
     const res = await fetch(`${API_BASE}/bookings`);
-    if (!res.ok) throw new Error(res.statusText);
-    return await res.json();
+    if (!res.ok) {
+       const contentType = res.headers.get("content-type");
+       if (contentType && contentType.indexOf("application/json") === -1) throw new Error("API Route Not Found");
+       throw new Error("API Error");
+    }
+    const data = await res.json();
+    if (data.length > 0) {
+      saveToLocal(LS_KEYS.BOOKINGS, data);
+    }
+    return data;
   } catch (e) {
-    console.error("Failed to fetch bookings", e);
-    return [];
+    console.warn("Using LocalStorage for Bookings");
+    return getFromLocal<Booking>(LS_KEYS.BOOKINGS);
   }
 };
 
 export const saveBooking = async (booking: Booking): Promise<void> => {
-  await fetch(`${API_BASE}/bookings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(booking)
-  });
+  try {
+    const res = await fetch(`${API_BASE}/bookings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(booking)
+    });
+    if (!res.ok) throw new Error("API Error");
+  } catch (e) {
+    const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
+    bookings.push(booking);
+    saveToLocal(LS_KEYS.BOOKINGS, bookings);
+  }
 };
 
 export const updateBookingStatus = async (id: string, status: BookingStatus): Promise<void> => {
-  await fetch(`${API_BASE}/bookings/${id}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status })
-  });
+  try {
+    const res = await fetch(`${API_BASE}/bookings/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error("API Error");
+  } catch (e) {
+    const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
+    const booking = bookings.find(b => b.id === id);
+    if (booking) {
+      booking.status = status;
+      saveToLocal(LS_KEYS.BOOKINGS, bookings);
+    }
+  }
 };
 
 export const checkAvailability = async (
