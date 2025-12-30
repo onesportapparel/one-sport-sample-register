@@ -39,7 +39,7 @@ export const printBooking = async (booking: Booking) => {
     </head>
     <body>
       <div class="header">
-        <div><h1>One Sport</h1><p>Sample Register</p></div>
+        <div><h1>One Sport</h1><p>Kit Register</p></div>
         <div style="text-align:right"><h2>Booking Sheet</h2><p>Ref: ${booking.id.substring(0,8)}</p></div>
       </div>
       <div class="grid">

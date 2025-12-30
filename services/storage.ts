@@ -1,19 +1,9 @@
 
 import { Booking, Kit, KitAvailability, BookingStatus } from '../types';
 
-const STORAGE_KEY_BOOKINGS = 'onesport_bookings_v2';
-const STORAGE_KEY_KITS = 'onesport_kits_v6';
+const API_BASE = '/api';
 
-// Safe ID generation for both local and cloud environments
-export const generateId = (): string => {
-  try {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-  } catch (e) {}
-  return 'id-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-};
-
+// --- SEED DATA (To ensure we keep the current catalogue) ---
 const RAW_KITS = [
   { no: "001", sup: "TDP", cat: "Hoodies", desc: "001 Mixed ST PETERS Hoodies", bay: "BAY 8", size: "4-16, S-3XL" },
   { no: "002", sup: "TDP*", cat: "Hoodies", desc: "002 - ST PETERS MIXED", bay: "BAY 7", size: "6-16, XS-3XL" },
@@ -145,83 +135,101 @@ const RAW_KITS = [
   { no: "96", sup: "TDP", cat: "Trackpants", desc: "96 MELBA Copeland", bay: "BAY 9", size: "G12,14 Ladies 6-20 and Mens 10-3XL" }
 ];
 
+export const generateId = (): string => {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+  } catch (e) {}
+  return 'id-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
 // --- Kit Management ---
 
 export const getKits = async (): Promise<Kit[]> => {
-  // Simulate network delay
-  await new Promise(r => setTimeout(r, 100));
-  
-  const stored = localStorage.getItem(STORAGE_KEY_KITS);
-  if (stored) {
-    return JSON.parse(stored);
+  try {
+    const res = await fetch(`${API_BASE}/kits`);
+    const data = await res.json();
+    
+    // Auto-Seeding Logic
+    if (Array.isArray(data) && data.length === 0) {
+      console.log('Database empty. Seeding with default catalogue...');
+      const seedKits: Kit[] = RAW_KITS.map(raw => ({
+        id: generateId(),
+        kitNumber: raw.no,
+        supplier: raw.sup,
+        category: raw.cat,
+        description: raw.desc,
+        bay: raw.bay,
+        sizes: raw.size
+      })).sort((a, b) => (parseInt(a.kitNumber) || 0) - (parseInt(b.kitNumber) || 0));
+
+      // Batch upload (handling one by one to avoid payload limits, could be optimized)
+      await Promise.all(seedKits.map(k => addKit(k)));
+      return seedKits;
+    }
+
+    return data;
+  } catch (e) {
+    console.error("Failed to fetch kits", e);
+    return [];
   }
-  
-  const initialKits: Kit[] = RAW_KITS.map(raw => ({
-    id: `kit-${raw.no}-${generateId()}`,
-    kitNumber: raw.no,
-    supplier: raw.sup,
-    category: raw.cat,
-    description: raw.desc,
-    bay: raw.bay,
-    sizes: raw.size
-  })).sort((a, b) => (parseInt(a.kitNumber) || 0) - (parseInt(b.kitNumber) || 0));
-  
-  localStorage.setItem(STORAGE_KEY_KITS, JSON.stringify(initialKits));
-  return initialKits;
 };
 
 export const addKit = async (kit: Kit): Promise<void> => {
-  const kits = await getKits();
-  kits.push(kit);
-  kits.sort((a, b) => (parseInt(a.kitNumber) || 0) - (parseInt(b.kitNumber) || 0));
-  localStorage.setItem(STORAGE_KEY_KITS, JSON.stringify(kits));
+  await fetch(`${API_BASE}/kits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(kit)
+  });
 };
 
 export const updateKit = async (updatedKit: Kit): Promise<void> => {
-  const kits = await getKits();
-  const index = kits.findIndex(k => k.id === updatedKit.id);
-  if (index !== -1) {
-    kits[index] = updatedKit;
-    kits.sort((a, b) => (parseInt(a.kitNumber) || 0) - (parseInt(b.kitNumber) || 0));
-    localStorage.setItem(STORAGE_KEY_KITS, JSON.stringify(kits));
-  }
+  await fetch(`${API_BASE}/kits/${updatedKit.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updatedKit)
+  });
 };
 
 export const deleteKit = async (id: string): Promise<void> => {
-  const kits = await getKits();
-  const filtered = kits.filter(k => k.id !== id);
-  localStorage.setItem(STORAGE_KEY_KITS, JSON.stringify(filtered));
+  await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
 };
 
 // --- Booking Management ---
 
 export const getBookings = async (): Promise<Booking[]> => {
-  await new Promise(r => setTimeout(r, 100));
-  const stored = localStorage.getItem(STORAGE_KEY_BOOKINGS);
-  return stored ? JSON.parse(stored) : [];
+  try {
+    const res = await fetch(`${API_BASE}/bookings`);
+    if (!res.ok) throw new Error(res.statusText);
+    return await res.json();
+  } catch (e) {
+    console.error("Failed to fetch bookings", e);
+    return [];
+  }
 };
 
 export const saveBooking = async (booking: Booking): Promise<void> => {
-  const bookings = await getBookings();
-  bookings.push(booking);
-  localStorage.setItem(STORAGE_KEY_BOOKINGS, JSON.stringify(bookings));
+  await fetch(`${API_BASE}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(booking)
+  });
 };
 
 export const updateBookingStatus = async (id: string, status: BookingStatus): Promise<void> => {
-  const bookings = await getBookings();
-  const index = bookings.findIndex(b => b.id === id);
-  if (index !== -1) {
-    bookings[index].status = status;
-    localStorage.setItem(STORAGE_KEY_BOOKINGS, JSON.stringify(bookings));
-  }
+  await fetch(`${API_BASE}/bookings/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
 };
 
 export const checkAvailability = async (
   dateOut: string, 
   dateReturn: string
 ): Promise<Record<string, KitAvailability>> => {
-  const bookings = await getBookings();
-  const allKits = await getKits();
+  const [bookings, allKits] = await Promise.all([getBookings(), getKits()]);
   const availability: Record<string, KitAvailability> = {};
   
   const requestedStart = new Date(dateOut).getTime();
