@@ -1,7 +1,14 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { kitsContainer } from "../db";
-import { randomUUID } from "crypto";
+
+// Simple ID generator to avoid import issues
+const generateId = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
 
 // GET ALL KITS
 app.http('getKits', {
@@ -27,7 +34,7 @@ app.http('addKit', {
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
         try {
             const kit = await request.json() as any;
-            if(!kit.id) kit.id = randomUUID();
+            if(!kit.id) kit.id = generateId();
             const { resource } = await kitsContainer.items.create(kit);
             return { status: 201, jsonBody: resource };
         } catch (error) {

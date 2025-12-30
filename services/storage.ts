@@ -49,15 +49,17 @@ const saveToLocal = (key: string, data: any[]) => {
 export const getKits = async (): Promise<Kit[]> => {
   try {
     const res = await fetch(`${API_BASE}/kits`);
-    if (!res.ok) {
-       console.error(`API Error: ${res.status} ${res.statusText}`);
-       const contentType = res.headers.get("content-type");
-       // If it's HTML, we hit the 404 fallback (API not deployed or wrong URL)
-       if (contentType && contentType.indexOf("application/json") === -1) {
-         throw new Error(`API Route Not Found (Received HTML)`);
-       }
-       throw new Error(`API returned ${res.status}`);
+    
+    // Check if we got HTML (Soft 404 from SPA fallback) instead of JSON
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("text/html")) {
+        throw new Error("Backend API not reachable (Received HTML). Server may be starting or build failed.");
     }
+
+    if (!res.ok) {
+       throw new Error(`API returned ${res.status}: ${res.statusText}`);
+    }
+
     const data = await res.json();
     
     // API is working
@@ -173,10 +175,14 @@ export const deleteKit = async (id: string): Promise<void> => {
 export const getBookings = async (): Promise<Booking[]> => {
   try {
     const res = await fetch(`${API_BASE}/bookings`);
+
+    // Check if we got HTML (Soft 404 from SPA fallback) instead of JSON
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("text/html")) {
+        throw new Error("Backend API not reachable (Received HTML). Server may be starting or build failed.");
+    }
+
     if (!res.ok) {
-       console.error(`API Error: ${res.status} ${res.statusText}`);
-       const contentType = res.headers.get("content-type");
-       if (contentType && contentType.indexOf("application/json") === -1) throw new Error("API Route Not Found (Received HTML)");
        throw new Error(`API returned ${res.status}`);
     }
     const data = await res.json();
