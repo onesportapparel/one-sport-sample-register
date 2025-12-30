@@ -40,11 +40,9 @@ export const getContainer = async (containerName: string) => {
   }
 
   // UPDATED: Matches your specific new database name
-  const DATABASE_ID = "onesport-db2026";
-  
+const DATABASE_ID = "KitRegisterDB";  
   // Define correct partition keys for each container
-  const partitionKeyPath = containerName === 'kits' ? '/category' : '/type';
-
+const partitionKeyPath = '/id';  // All containers use /id as partition key
   try {
     // Create/Get Database
     const { database } = await cosmosClient.databases.createIfNotExists({ id: DATABASE_ID });
