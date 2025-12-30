@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getBookings, updateBookingStatus, getStorageStatus } from './services/storage';
+import { getBookings, updateBookingStatus, getStorageStatus, getConnectionError } from './services/storage';
 import { Booking } from './types';
 import { NewBookingForm } from './components/NewBookingForm';
 import { BookingList } from './components/BookingList';
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCloudConnected, setIsCloudConnected] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(Date.now());
+  const [errorDetails, setErrorDetails] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -37,11 +38,18 @@ const App: React.FC = () => {
       try {
         const data = await getBookings();
         setBookings(data);
-        setIsCloudConnected(getStorageStatus());
+        const connected = getStorageStatus();
+        setIsCloudConnected(connected);
+        if (!connected) {
+          setErrorDetails(getConnectionError());
+        } else {
+          setErrorDetails('');
+        }
         initEmailService();
       } catch (error) {
         console.error("Failed to load bookings", error);
         setIsCloudConnected(false);
+        setErrorDetails(error instanceof Error ? error.message : "Unknown System Error");
       } finally {
         setIsLoading(false);
       }
@@ -143,13 +151,19 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-10">
         {!isCloudConnected && (
-          <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-8 flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
-             <div className="bg-rose-100 p-2 rounded-lg text-rose-600">
+          <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-8 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
+             <div className="bg-rose-100 p-2 rounded-lg text-rose-600 mt-1">
                <WifiOff className="w-5 h-5" />
              </div>
-             <div>
+             <div className="flex-grow">
                <h4 className="text-sm font-black text-rose-700 uppercase tracking-wide">Sync Issue Detected</h4>
-               <p className="text-xs text-rose-600 font-medium">The application is running in local fallback mode. Changes made on this device will NOT be visible to other users until the cloud connection is restored.</p>
+               <p className="text-xs text-rose-600 font-medium mb-2">The application is running in local fallback mode. Changes made on this device will NOT be visible to other users until the cloud connection is restored.</p>
+               {errorDetails && (
+                 <div className="bg-rose-100/50 p-2 rounded-lg border border-rose-200">
+                    <p className="text-[10px] font-bold text-rose-800 uppercase tracking-wider mb-1">Diagnostic Info:</p>
+                    <code className="text-[10px] font-mono text-rose-700 break-all">{errorDetails}</code>
+                 </div>
+               )}
              </div>
           </div>
         )}

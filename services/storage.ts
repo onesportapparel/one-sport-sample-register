@@ -9,14 +9,15 @@ const LS_KEYS = {
 
 // Track connection status
 let isUsingCloud = false;
+let lastConnectionError = "";
 
 export const getStorageStatus = () => isUsingCloud;
+export const getConnectionError = () => lastConnectionError;
 
 // --- SEED DATA ---
 const RAW_KITS = [
   { no: "001", sup: "TDP", cat: "Hoodies", desc: "001 Mixed ST PETERS Hoodies", bay: "BAY 8", size: "4-16, S-3XL" },
   { no: "002", sup: "TDP*", cat: "Hoodies", desc: "002 - ST PETERS MIXED", bay: "BAY 7", size: "6-16, XS-3XL" },
-  // ... (Full list kept for fallback) ...
   { no: "96", sup: "TDP", cat: "Trackpants", desc: "96 MELBA Copeland", bay: "BAY 9", size: "G12,14 Ladies 6-20 and Mens 10-3XL" }
 ];
 
@@ -61,6 +62,7 @@ export const getKits = async (): Promise<Kit[]> => {
     
     // API is working
     isUsingCloud = true;
+    lastConnectionError = "";
     
     // Update local cache
     if (data.length > 0) {
@@ -71,6 +73,8 @@ export const getKits = async (): Promise<Kit[]> => {
   } catch (e) {
     console.warn("Using LocalStorage for Kits due to:", e);
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
+    
     let localData = getFromLocal<Kit>(LS_KEYS.KITS);
     
     // Auto-Seeding for LocalStorage
@@ -91,9 +95,11 @@ export const addKit = async (kit: Kit): Promise<void> => {
     });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
+    lastConnectionError = "";
   } catch (e) {
     console.warn("API Write Failed - Saving Locally", e);
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     kits.push(kit);
     saveToLocal(LS_KEYS.KITS, kits);
@@ -134,8 +140,10 @@ export const updateKit = async (updatedKit: Kit): Promise<void> => {
     });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
+    lastConnectionError = "";
   } catch (e) {
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     const index = kits.findIndex(k => k.id === updatedKit.id);
     if (index !== -1) {
@@ -150,8 +158,10 @@ export const deleteKit = async (id: string): Promise<void> => {
     const res = await fetch(`${API_BASE}/kits/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
+    lastConnectionError = "";
   } catch (e) {
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
     const kits = getFromLocal<Kit>(LS_KEYS.KITS);
     const filtered = kits.filter(k => k.id !== id);
     saveToLocal(LS_KEYS.KITS, filtered);
@@ -171,6 +181,7 @@ export const getBookings = async (): Promise<Booking[]> => {
     }
     const data = await res.json();
     isUsingCloud = true;
+    lastConnectionError = "";
     if (data.length > 0) {
       saveToLocal(LS_KEYS.BOOKINGS, data);
     }
@@ -178,6 +189,7 @@ export const getBookings = async (): Promise<Booking[]> => {
   } catch (e) {
     console.warn("Using LocalStorage for Bookings:", e);
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
     return getFromLocal<Booking>(LS_KEYS.BOOKINGS);
   }
 };
@@ -191,9 +203,11 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
     });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
+    lastConnectionError = "";
   } catch (e) {
     console.warn("API Write Failed - Saving Locally", e);
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
     const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
     bookings.push(booking);
     saveToLocal(LS_KEYS.BOOKINGS, bookings);
@@ -209,8 +223,10 @@ export const updateBookingStatus = async (id: string, status: BookingStatus): Pr
     });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     isUsingCloud = true;
+    lastConnectionError = "";
   } catch (e) {
     isUsingCloud = false;
+    lastConnectionError = e instanceof Error ? e.message : String(e);
     const bookings = getFromLocal<Booking>(LS_KEYS.BOOKINGS);
     const booking = bookings.find(b => b.id === id);
     if (booking) {
